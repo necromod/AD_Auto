@@ -23,8 +23,10 @@ def instalar_pacotes():
         try:
             __import__(pacote)
         except ImportError:
-            print(f"Instalando pacote: {pacote}")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", pacote])
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", pacote])
+            except subprocess.CalledProcessError as e:
+                sys.exit(1)
 instalar_pacotes()
 
 # Definição de variáveis globais
@@ -44,14 +46,30 @@ def get_conexao():
     dominio_netbios = os.environ.get('USERDOMAIN')
     dominio_dns = os.environ.get('USERDNSDOMAIN')
     usuario_completo = f'{dominio_netbios}\\{usuario}'
-    senha = getpass.getpass("Digite sua senha do AD: ")
-
+    
+    # Verifica se o domínio DNS foi obtido corretamente
     if not dominio_dns:
         raise Exception("Não foi possível obter o domínio DNS.")
 
     servidor = Server(dominio_dns, get_info=ALL)
-    conexao = Connection(servidor, user=usuario_completo, password=senha, authentication=NTLM, auto_bind=True)
-    return conexao
+    
+    while True:
+        # Solicita a senha do usuário logado
+        senha = getpass.getpass("Digite sua senha do AD: ")
+        try:
+            # Conecta ao AD com usuário logado e senha informada
+            conexao = Connection(servidor, user=usuario_completo, password=senha, authentication=NTLM, auto_bind=True)
+            return conexao
+        except Exception as e:
+            erro_str = str(e)
+            # Se a senha estiver incorreta, tenta de novo
+            if "invalidCredentials" in erro_str:
+                print("Credenciais incorretas.")
+                continue
+            # Se for outro erro, exibe mensagem e encerra
+            else:
+                print(f"Erro: {e}")
+                sys.exit(1)
 
 # Obtém o DN do server, que é usado como base para buscas como se fosse um prefixo
 def get_base_dn(conexao):
