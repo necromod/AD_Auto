@@ -35,6 +35,7 @@ feriados_sp = holidays.Brazil(prov='SP')
 # Armazena cada busca de usuário
 usuarios_encontrados = {}
 
+
 # Obtém o nome do usuário logado no sistema
 def get_usuario_logado():
     return os.getlogin()
@@ -140,6 +141,21 @@ def buscar_usuario(conexao):
             return
         else:
             print("Entrada inválida. Tente novamente.")
+
+# Lista todos os usuários ativos do Active Directory
+def lista_usuarios_ativos(conexao):
+    base_dn = get_base_dn(conexao)
+    filtro = '(&(objectClass=user)(objectCategory=person)(userAccountControl:1.2.840.113556.1.4.803:=512))'
+    
+    conexao.search(base_dn, filtro, attributes=['sAMAccountName', 'displayName', 'distinguishedName'])
+    
+    if not conexao.entries:
+        print("Nenhum usuário ativo encontrado.")
+        return
+
+    print("\nUsuários ativos encontrados:")
+    for entry in conexao.entries:
+        print(f"{entry.displayName.value} ({entry.sAMAccountName.value}) - DN: {entry.distinguishedName.value}")
 
 # Altera o campo 'escritório' de um usuário previamente buscado
 def alterar_escritorio(conexao):
@@ -303,6 +319,7 @@ def menu():
         print("2. Alterar campo 'escritório' de um usuário buscado")
         print("3. Renovar conta de usuário")
         print("4. Contar membros dos grupos principais")
+        print("5. Listar usuários ativos")
         print("5. Sair")
 
         opcao = input("Escolha uma opção: ")
@@ -315,6 +332,8 @@ def menu():
         elif opcao == '4':
             contar_membros_grupos(conexao)
         elif opcao == '5':
+            lista_usuarios_ativos(conexao)
+        elif opcao == '6':
             print("Encerrando...")
             break
         else:
